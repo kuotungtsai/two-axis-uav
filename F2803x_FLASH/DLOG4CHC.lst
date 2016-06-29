@@ -1,0 +1,191 @@
+TMS320C2000 Assembler Unix v15.12.1 Wed Jun 29 07:17:38 2016
+
+Tools Copyright (c) 1996-2015 Texas Instruments Incorporated
+../DLOG4CHC.asm                                                      PAGE    1
+
+       1              ;==============================================================================
+       2              ; File name     : DLOG4CHC.ASM                     
+       3              ;                    
+       4              ; Originator    : Advanced Embeeded Control (AEC)
+       5              ;                 Texas Instruments Inc.
+       6              ;
+       7              ; Description   : 4-Channel Data logging module
+       8              ;
+       9              ; Date          : 02/01/2002 (DD/MM/YYYY)
+      10              ;==============================================================================
+      11              ; Routine Name: data_log_update                                
+      12              ;  
+      13              ; C prototype : void DLOG_4CH_update(DLOG_4CH_handle);
+      14              ;               void DLOG_4CH_init(DLOG_4CH_handle);
+      15              ;
+      16              ; The struct object is defined in the header file "dlog_4ch.h" as follows:
+      17              ;
+      18              ; typedef struct { 
+      19              ;       long task;           /* Variable: Task address pointer          */
+      20              ;       int  *iptr1;         /* Input: First input pointer (Q15)        */    
+      21              ;       int  *iptr2;         /* Input: Second input pointer (Q15)       */        
+      22              ;       int  *iptr3;         /* Input: Third input pointer (Q15)        */
+      23              ;       int  *iptr4;         /* Input: Fourth input pointer (Q15)       */ 
+      24              ;       int  trig_value;     /* Input: Trigger point (Q15)              */           
+      25              ;       int  prescalar;      /* Parameter: Data log prescale            */
+      26              ;       int  skip_cntr;      /* Variable: Data log skip counter         */                 
+      27              ;       int  cntr;           /* Variable: Data log counter              */
+      28              ;       long write_ptr;      /* Variable: Graph address pointer         */
+      29              ;       int  size;           /* Parameter: Maximum data DLOG_4CH_buffer */
+      30              ;       int  (*init)();      /* Pointer to init function                */
+      31              ;       int  (*update)();    /* Pointer to update function              */ 
+      32              ;       } DLOG_4CH;                            
+      33              
+      34              ;==============================================================================
+      35              
+      36              ; External Reference
+      37                              .def  _DLOG_4CH_update 
+      38                              .def  _DLOG_4CH_init
+      39              
+      40              ; Data log buffer definition
+      41        0190  BUFF_SIZE       .set  0190h
+      42                              
+      43 00000000       DLOG_4CH_buff1      .usect "DLOG", BUFF_SIZE
+      44 00000190       DLOG_4CH_buff2      .usect "DLOG", BUFF_SIZE
+      45 00000320       DLOG_4CH_buff3      .usect "DLOG", BUFF_SIZE
+      46 000004b0       DLOG_4CH_buff4      .usect "DLOG", BUFF_SIZE
+      47                              
+      48              
+      49              ;==============================================================================
+      50              ; Initialization Function
+      51              ;==============================================================================
+      52              
+      53 00000000       _DLOG_4CH_init:                                     
+      54 00000000 8F40'         MOVL    XAR5,#POS_TRIG_S1
+         00000001 0010 
+TMS320C2000 Assembler Unix v15.12.1 Wed Jun 29 07:17:38 2016
+
+Tools Copyright (c) 1996-2015 Texas Instruments Incorporated
+../DLOG4CHC.asm                                                      PAGE    2
+
+      55 00000002 A0C4          MOVL    *XAR4,XAR5          ; task=#POS_TRIG_S1 
+      56 00000003 DC0A          ADDB    XAR4,#10            ; XAR4->trig_value
+      57                      
+      58 00000004 2BD4          MOV     *+XAR4[2],#0
+      59              
+      60 00000005 8F40-         MOVL    XAR5,#DLOG_4CH_buff1
+         00000006 0000 
+      61 00000007 A0E4          MOVL    *+XAR4[4],XAR5      ; write_ptr=DLOG_4CH_buff1
+      62                             
+      63                      
+      64 00000008 92F4          MOV     AL,*+XAR4[6]        ; ACC=size
+      65 00000009 96DC          MOV     *+XAR4[3],AL        ; cntr=size
+      66 0000000a 0006          LRETR
+      67                          
+      68              ;==============================================================================
+      69              ; Datalog Update Function
+      70              ;==============================================================================
+      71              
+      72 0000000b       _DLOG_4CH_update:   
+      73 0000000b 3B01          SETC    SXM
+      74 0000000c 83A4          MOVL    XAR5,XAR4           ; XAR4->task
+      75 0000000d C584          MOVL    XAR7,*XAR4++        ; XAR4->iptr1, XAR7=task            
+      76 0000000e DD0A          ADDB    XAR5,#10            ; XAR5->trig_value
+      77 0000000f 7620          LB      *XAR7               ; Branch to TASK    
+      78                      
+      79 00000010       POS_TRIG_S1:
+      80 00000010 85C5          MOV     ACC,*XAR5           ; ACC=trig_value
+      81 00000011 C4C4          MOVL    XAR6,*XAR4          ; XAR6=iptr1
+      82 00000012 AEC6          SUB     ACC,*XAR6           ; ACC=(trig_value - *iptr1)
+      83 00000013 56C5          BF      DL_EXIT,LEQ         ; Exit if ACC <= 0 
+         00000014 0037 
+      84                                                       
+      85 00000015 7680'         MOVL    XAR6,#POS_TRIG_S2   
+         00000016 0019 
+      86 00000017 C28C          MOVL    *--XAR4,XAR6        ; task=POS_TRIG_S2
+      87 00000018 0006          LRETR
+      88                              
+      89 00000019       POS_TRIG_S2:                    
+      90 00000019 85C5          MOV     ACC,*XAR5           ; ACC=trig_value
+      91 0000001a C4C4          MOVL    XAR6,*XAR4          ; XAR6=iptr1
+      92 0000001b AEC6          SUB     ACC,*XAR6           ; ACC=(trig_value - *iptr1)
+      93 0000001c 56C3          BF      DL_EXIT,GEQ         ; Exit if ACC >= 0 
+         0000001d 002E 
+      94                                                                  
+      95 0000001e 7680'         MOVL    XAR6,#DL_TRIGGERED   
+         0000001f 0022 
+      96 00000020 C28C          MOVL    *--XAR4,XAR6        ; task=POS_TRIG_S2
+      97 00000021 0006          LRETR
+      98                              
+      99 00000022       DL_TRIGGERED:                                   
+     100 00000022 0AD5          INC     *+XAR5[2]           ; skip_cntr=skip_cntr+1
+     101 00000023 85D5          MOV     ACC,*+XAR5[2]       ; ACC=skip_cntr
+     102 00000024 AECD          SUB     ACC,*+XAR5[1]       ; ACC=skip_cntr-prescalar
+     103 00000025 ED25          SBF     DL_EXIT,NEQ         ; if (skip_cntr+1) < prescalar, then exit
+     104                      
+TMS320C2000 Assembler Unix v15.12.1 Wed Jun 29 07:17:38 2016
+
+Tools Copyright (c) 1996-2015 Texas Instruments Incorporated
+../DLOG4CHC.asm                                                      PAGE    3
+
+     105 00000026 2BD5          MOV     *+XAR5[2],#0        ; skip_cntr=0   
+     106 00000027 85DD          MOV     ACC,*+XAR5[3]       ; ACC=cntr
+     107 00000028 EC1A          SBF     DLOG_END,EQ 
+     108                                      
+     109 00000029 0BDD          DEC     *+XAR5[3]           ; cntr=cntr-1
+     110 0000002a DD04          ADDB    XAR5,#4             ; XAR5->write_ptr
+     111              
+     112 0000002b C4C5          MOVL    XAR6,*XAR5          ; XAR6=write_ptr
+     113 0000002c DE01          ADDB    XAR6,#1             ; XAR6=write_ptr+1
+     114 0000002d C2C5          MOVL    *XAR5,XAR6          ; write_ptr=write_ptr + 1
+     115 0000002e DE81          SUBB    XAR6,#1             ; XAR6=write_ptr
+     116              
+     117 0000002f 28A0          MOV     AR0,#BUFF_SIZE      ; AR0=BUFF_SIZE 
+         00000030 0190 
+     118                      
+     119                                              
+     120              ; Log sample pointed by IPTR1       
+     121 00000031 C584          MOVL    XAR7,*XAR4++        ; XAR7=iptr1
+     122 00000032 92C7          MOV     AL,*XAR7            ; AL=*iptr1
+     123 00000033 77B6          NOP     *,ARP6
+     124 00000034 96BB          MOV     *0++,AL             ; *write_ptr=*iptr1, XAR6=write_ptr+size
+     125              
+     126              ; Log sample pointed by IPTR2           
+     127 00000035 C584          MOVL    XAR7,*XAR4++        ; XAR7=iptr2
+     128 00000036 92C7          MOV     AL,*XAR7            ; AL=*iptr2
+     129 00000037 77B6          NOP     *,ARP6
+     130 00000038 96BB          MOV     *0++,AL             ; *write_ptr=*iptr2, XAR6=write_ptr+size
+     131              
+     132              ; Log sample pointed by IPTR3                           
+     133 00000039 C584          MOVL    XAR7,*XAR4++        ; XAR7=iptr3
+     134 0000003a 92C7          MOV     AL,*XAR7            ; AL=*iptr3
+     135 0000003b 77B6          NOP     *,ARP6
+     136 0000003c 96BB          MOV     *0++,AL             ; *write_ptr=*iptr3, XAR6=write_ptr+size
+     137              
+     138              ; Log sample pointed by IPTR4                   
+     139 0000003d C584          MOVL    XAR7,*XAR4++        ; XAR7=iptr4
+     140 0000003e 92C7          MOV     AL,*XAR7            ; AL=*iptr4
+     141 0000003f 77B6          NOP     *,ARP6
+     142 00000040 96BB          MOV     *0++,AL             ; *write_ptr=*iptr4, XAR6=write_ptr+size
+     143 00000041 0006          LRETR
+     144              
+     145              ; Reinitialise the module to log the data when the logging is triggered next
+     146                      
+     147 00000042       DLOG_END: 
+     148              
+     149 00000042 7680-         MOVL    XAR6,#DLOG_4CH_buff1
+         00000043 0000 
+     150 00000044 C2E5          MOVL    *+XAR5[4],XAR6      ; write_ptr=DLOG_4CH_buff1
+     151                             
+     152 00000045 7680'         MOVL    XAR6,#POS_TRIG_S1   
+         00000046 0010 
+     153 00000047 C28C          MOVL    *--XAR4,XAR6        ; task=POS_TRIG_S2
+     154              
+     155 00000048 92F5          MOV     AL,*+XAR5[6]        ; ACC=size
+     156 00000049 96DD          MOV     *+XAR5[3],AL        ; cntr=size
+TMS320C2000 Assembler Unix v15.12.1 Wed Jun 29 07:17:38 2016
+
+Tools Copyright (c) 1996-2015 Texas Instruments Incorporated
+../DLOG4CHC.asm                                                      PAGE    4
+
+     157                    
+     158 0000004a       DL_EXIT:        
+     159 0000004a 0006          LRETR   
+     160              
+
+No Assembly Errors, No Assembly Warnings
